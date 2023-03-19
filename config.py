@@ -7,7 +7,12 @@ batch_size = 16
 
 # pre process 
 image_size = 224
-num_patches = 8
-if image_size % num_patches != 0: 
-    raise ValueError("image size not divisble by num_patches, ", (image_size, num_patches))
 
+# classes number 91 is noobj
+num_classes = 91
+
+
+image_train = "coco"+"/images/train2017"
+annot_train = "coco"+"/annotations/instances_train2017.json"
+image_val = "coco" + "/images/val2017"
+annot_val = "coco" + "/annotations/instances_val2017.json"
