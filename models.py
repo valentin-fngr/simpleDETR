@@ -55,15 +55,51 @@ class Transformer(nn.Module):
                 Dropout value for both encoder and decoder 
     """
 
-    def __init__(self, num_queries, d_model, num_patches, encoder, decoder, dropout):
+    def __init__(
+            self, 
+            num_queries, 
+            d_model, 
+            num_patches, 
+            num_head, 
+            num_encoders, 
+            num_decoders, 
+            dropout
+        ):
         super().__init__() 
+        self.num_patches = num_patches
+        self.num_queries = num_queries
         self.queries_embedding = nn.Embedding(num_queries, d_model)
         self.pos_embedding = nn.Embedding(num_patches, d_model)
-        self.encoder = encoder 
-        self.decoder = decoder
+        self.encoder = TransformerEncoder(d_model, num_head, dropout, num_encoders)
+        self.decoder = TransformerDecoder(d_model, num_head, dropout, num_decoders)
         
     def forward(self, x): 
-        pass 
+        """
+        Attributes
+        ----------
+        x : tensor (bs, c, num_pathes) 
+            feature maps
+        """
+        bs = x.shape[0]
+        spatial_encoding = self.pos_embedding(torch.arange(self.num_patches, device=x.device))[None, :, :].repeat(bs, 1, 1) # (bs, num_patches, d_model)
+        object_queries = self.queries_embedding(torch.arange(self.num_queries, device=x.device))[None, :, :].repeat(bs, 1, 1) # (bs, 100, d_model)
+
+        # reshape for multihead 
+        spatial_encoding = torch.permute(spatial_encoding, (1, 0, 2)) 
+        object_queries = torch.permute(object_queries, (1, 0, 2)) 
+        x = torch.permute(x, (2, 0, 1))
+
+        input_decoder = torch.zeros_like(object_queries)
+
+        print("spac enc : ", spatial_encoding.shape)
+        print("object queries : ", object_queries.shape)
+        print("x : ", x.shape)
+
+        out_encoder = self.encoder(x, spatial_encoding) 
+        out_decoder = self.decoder(input_decoder, object_queries, out_encoder, spatial_encoding)     
+
+        return out_decoder
+         
 
 
 
@@ -74,6 +110,7 @@ class EncoderBlock(nn.Module):
         self.self_attn = nn.MultiheadAttention(d_model, num_head, dropout) 
         self.gelu = nn.GELU() 
         self.dropout1 = nn.Dropout()
+        self.dropout2 = nn.Dropout()
         self.layer_norm1 = nn.LayerNorm(d_model) 
         self.layer_norm2 = nn.LayerNorm(d_model) 
         self.ffn = nn.Linear(d_model, d_model, bias=False)
@@ -86,7 +123,7 @@ class EncoderBlock(nn.Module):
         out1 = self.self_attn(query=q, key=k, value=x_norm)[0] # return the output only
         out1 = self.dropout1(out1) + x
         out2 = self.gelu(self.ffn(out1))  
-        out2 = self.layer_norm2(self.dropout(out2) + out1)
+        out2 = self.layer_norm2(self.dropout2(out2) + out1)
         
         return out2 
 
@@ -105,9 +142,6 @@ class TransformerEncoder(nn.Module):
         return out
 
 
-
-
-
 class DecoderBlock(nn.Module): 
 
     def __init__(self, d_model, num_head, dropout): 
@@ -123,7 +157,6 @@ class DecoderBlock(nn.Module):
         self.gelu = nn.GELU() 
 
     def forward(self, x, object_queries, memory, pos_embedding): 
-
         x_norm = self.layer_norm1(x)
         k = q = x + object_queries 
         v = x_norm
@@ -131,17 +164,17 @@ class DecoderBlock(nn.Module):
         out1 = self.dropout1(out1) + x_norm
         out2 = self.gelu(self.ffn(out1)) 
         out2 = self.layer_norm2(self.dropout2(out2) + out1)
+        return out2
 
 
 
-class DecoderTransformer(nn.Module): 
+class TransformerDecoder(nn.Module): 
 
     def __init__(self, d_model, num_head, dropout, num_decoders): 
         super().__init__() 
         self.layers = nn.ModuleList([DecoderBlock(d_model, num_head, dropout) for _ in range(num_decoders)])
     
     def forward(self, x, object_queries, memory, pos_embedding): 
-
         out = x 
         for layer in self.layers: 
             out = layer(out, object_queries, memory, pos_embedding)
@@ -150,8 +183,17 @@ class DecoderTransformer(nn.Module):
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(device)
-encoder = TransformerEncoder(192, 8, 0.1, 5)
-print(encoder)
-decoder = DecoderTransformer(192, 8, 0.1, 5)
-print(decoder)
+
+transformer = Transformer(
+            num_queries=100, 
+            d_model=192, 
+            num_patches=49, 
+            num_head=6, 
+            num_encoders=6, 
+            num_decoders=6, 
+            dropout=0.1
+        ).to(device)
+
+
+features = torch.rand(16, 192, 49, device=device)
+print(transformer(features).shape)

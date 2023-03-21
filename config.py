@@ -12,7 +12,7 @@ image_size = 224
 num_classes = 91
 
 
-image_train = "coco"+"/images/train2017"
+image_train = "coco" + "/images/train2017"
 annot_train = "coco"+"/annotations/instances_train2017.json"
 image_val = "coco" + "/images/val2017"
 annot_val = "coco" + "/annotations/instances_val2017.json"
