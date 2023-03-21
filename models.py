@@ -113,7 +113,8 @@ class EncoderBlock(nn.Module):
         self.dropout2 = nn.Dropout()
         self.layer_norm1 = nn.LayerNorm(d_model) 
         self.layer_norm2 = nn.LayerNorm(d_model) 
-        self.ffn = nn.Linear(d_model, d_model, bias=False)
+        self.ffn1 = nn.Linear(d_model, d_model)
+        self.ffn2 = nn.Linear(d_model, d_model)
 
     def forward(self, x, pos_embedding): 
         # normalization of the input 
@@ -122,9 +123,8 @@ class EncoderBlock(nn.Module):
         k = x_norm + pos_embedding
         out1 = self.self_attn(query=q, key=k, value=x_norm)[0] # return the output only
         out1 = self.dropout1(out1) + x
-        out2 = self.gelu(self.ffn(out1))  
-        out2 = self.layer_norm2(self.dropout2(out2) + out1)
-        
+        out2 = self.ffn2(self.gelu(self.ffn1(self.layer_norm2(out1))))
+        out2 = self.dropout2(out2) + out1
         return out2 
 
 
@@ -150,10 +150,10 @@ class DecoderBlock(nn.Module):
         self.multi_head_attn = nn.MultiheadAttention(d_model, num_head, dropout) 
         self.layer_norm1 = nn.LayerNorm(d_model) 
         self.layer_norm2 = nn.LayerNorm(d_model) 
-        self.layer_norm3 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout() 
         self.dropout2 = nn.Dropout()
-        self.ffn = nn.Linear(d_model, d_model)
+        self.ffn1 = nn.Linear(d_model, d_model)
+        self.ffn2 = nn.Linear(d_model, d_model)
         self.gelu = nn.GELU() 
 
     def forward(self, x, object_queries, memory, pos_embedding): 
@@ -161,9 +161,9 @@ class DecoderBlock(nn.Module):
         k = q = x + object_queries 
         v = x_norm
         out1 = self.self_attn(q, k, v)[0] 
-        out1 = self.dropout1(out1) + x_norm
-        out2 = self.gelu(self.ffn(out1)) 
-        out2 = self.layer_norm2(self.dropout2(out2) + out1)
+        out1 = self.dropout1(out1) + x_norm 
+        out2 = self.ffn2(self.gelu(self.ffn1(self.layer_norm2(out1)))) 
+        out2 = self.dropout2(out2) + out1 
         return out2
 
 
