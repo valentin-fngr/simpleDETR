@@ -1,6 +1,7 @@
 import torch.nn as nn 
 import torch 
-
+from torchvision import models
+import config 
 ## TODO : 
 ## take care of shapes for attention modules !!!
 
@@ -22,18 +23,45 @@ class DETR(nn.Module):
 
     def __init__(
             self, 
+            # backbone,  
+            # bipartite_matcher, 
             num_queries, 
-            transformer, 
-            bipartite_matcher
+            d_model,
+            num_patches,
+            num_head, 
+            num_encoders, 
+            num_decoders, 
+            dropout, 
+            c_out_features=2048,
+            train_backbone=False
         ): 
         super().__init__() 
+        model = models.resnet50(weights="IMAGENET1K_V1", progress=True)
+        backbone = torch.nn.Sequential(*(list(model.children())[:-2]))
 
-    def forward(self): 
-        pass
+        if not train_backbone:
+            print("Not training the backbone ") 
+            for param in backbone.parameters():
+                param.requires_grad = False
+
+        self.d_model = d_model
+        self.backbone = backbone
+        self.transformer = transformer = Transformer(num_queries, d_model, num_patches, num_head, num_encoders, num_decoders, dropout)
+        self.matcher = None
+        self.feature_projection =  nn.Conv2d(c_out_features, d_model, kernel_size=1) # used to project the features to a new space of dimension d_model
+
+    def forward(self, x): 
+        bs= x.shape[0]
+        features = self.feature_projection(self.backbone(x)) # (bs, c, p, p) 
+        print("features : ", features.shape)
+        # reshape 
+        features = features.view(bs, self.d_model, -1)
+        print("features shape : ", features.shape)
+        out = self.transformer(features)
+        return out 
 
 
-
-
+        
 
 
 class Transformer(nn.Module): 
@@ -195,5 +223,19 @@ transformer = Transformer(
         ).to(device)
 
 
-features = torch.rand(16, 192, 49, device=device)
-print(transformer(features).shape)
+# features = torch.rand(16, 192, 49, device=device)
+# print(transformer(features).shape)
+
+
+# detr = DETR(
+#     num_queries=100, 
+#     d_model=192, 
+#     num_patches=49, 
+#     num_head=6, 
+#     num_encoders=6, 
+#     num_decoders=6, 
+#     dropout=0.1
+# ).to(device)
+
+# out = detr(torch.rand(16, 3, 224, 224, device=device))
+# print(out.shape)
