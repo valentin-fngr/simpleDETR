@@ -3,7 +3,7 @@ import torch
 from box_utils import compute_iou
 from scipy.optimize import linear_sum_assignment
 
-# TODO : finish compute_iou methods in box_utils
+# TODO : test the class
 
 
 class HungarianMatcher(nn.Module): 
@@ -41,6 +41,9 @@ class HungarianMatcher(nn.Module):
         """
 
         bs, num_queries, num_classes = y_pred["labels"].shape
+        print("bs : ", bs )
+        print("num queries : ", num_queries) 
+        print("num classes : ", num_classes)
         device = y_pred["labels"].device
         # get the softmax score and reshape
         y_pred_labels = y_pred["labels"].softmax(-1).view(bs * num_queries, num_classes) # (bs * num_queries, num_classes)
@@ -56,18 +59,21 @@ class HungarianMatcher(nn.Module):
         prob_score = - y_pred_labels[:, y_true_labels] # (bs * num_queries, bs * num_total_objs) 
         
         # L1 distance between true and predictied boxes 
-        distance_score = torch.cdist(y_true_boxes, y_pred_boxes, 1) # (bs * num_queries, bs * num_total_objs) 
+        distance_score = torch.cdist(y_pred_boxes, y_true_boxes, 1) # (bs * num_queries, bs * num_total_objs) 
         # iou score
         IOU_score = compute_iou(y_true_boxes, y_pred_boxes) 
 
         # compute total score
+        print(prob_score.shape)
+        print(distance_score.shape) 
+        print(IOU_score.shape)
         match_cost = prob_score + distance_score + IOU_score 
         # reshape for convenience 
         match_cost = match_cost.view(bs, num_queries, -1).cpu() # ((bs, num_queries, bs * num_total_objs)) 
 
         # get the information regarding how many obejcts are present for each image
         # eg : [1, 4, 10, ...] means that the first image has 1 object, the second 4, the third 10, ... 
-        num_objects_per_image = [len(y["bboxes"] for y in y_true)] 
+        num_objects_per_image = [len(y["boxes"]) for y in y_true] 
 
         # we split the cost tensor by the number of images in each image. We split on the last dimension 
         # eg : 
@@ -87,6 +93,20 @@ class HungarianMatcher(nn.Module):
 
 
 
+# if __name__ == "__main__": 
+    
+#     y_true = [
+#         {"labels": torch.tensor([2, 4], dtype=torch.int32), "boxes": torch.tensor([[10, 10, 5, 5], [10, 10, 5, 5]], dtype=torch.float32)},
+#         {"labels": torch.tensor([1], dtype=torch.int32), "boxes": torch.tensor([[10, 10, 20, 20]], dtype=torch.float32)},
+#     ]
+
+#     y_pred = {
+#         "labels" : torch.randint(0, 5, size=(2, 10, 20), dtype=torch.float32),
+#         "boxes" : torch.randint(0, 20, size=(2, 10, 4), dtype=torch.float32)
+#     }
+
+#     matcher = HungarianMatcher(1, 1) 
+#     print(matcher(y_true, y_pred))
 
 
 
