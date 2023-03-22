@@ -33,7 +33,8 @@ class DETR(nn.Module):
             num_decoders, 
             dropout, 
             c_out_features=2048,
-            train_backbone=False
+            train_backbone=False, 
+            num_classes=91
         ): 
         super().__init__() 
         model = models.resnet50(weights="IMAGENET1K_V1", progress=True)
@@ -49,20 +50,26 @@ class DETR(nn.Module):
         self.transformer = transformer = Transformer(num_queries, d_model, num_patches, num_head, num_encoders, num_decoders, dropout)
         self.matcher = None
         self.feature_projection =  nn.Conv2d(c_out_features, d_model, kernel_size=1) # used to project the features to a new space of dimension d_model
+        self.boxe_head = BoxesHead(d_model, d_model, 4) 
+        self.label_head = LabelHead(d_model, num_classes + 1)
 
     def forward(self, x): 
         bs= x.shape[0]
         features = self.feature_projection(self.backbone(x)) # (bs, c, p, p) 
-        print("features : ", features.shape)
         # reshape 
         features = features.view(bs, self.d_model, -1)
-        print("features shape : ", features.shape)
         out = self.transformer(features)
-        return out 
+
+        label_pred = self.label_head(out) 
+        boxe_pred = self.boxe_head(out)
+
+        return {
+            "label" : label_pred, 
+            "boxes" : boxe_pred
+        } 
 
 
-        
-
+    
 
 class Transformer(nn.Module): 
     """
@@ -190,6 +197,8 @@ class DecoderBlock(nn.Module):
 
 
 
+
+
 class TransformerDecoder(nn.Module): 
 
     def __init__(self, d_model, num_head, dropout, num_decoders): 
@@ -203,6 +212,38 @@ class TransformerDecoder(nn.Module):
         return out 
 
 
+
+
+
+class BoxesHead(nn.Module): 
+
+    def __init__(self, in_d, hidden_d, out_d): 
+        super().__init__()
+        self.linear1 = nn.Linear(in_d, hidden_d) 
+        self.linear2 = nn.Linear(hidden_d, hidden_d) 
+        self.linear3 = nn.Linear(hidden_d, out_d)
+
+        self.dropout1 = nn.Dropout()
+        self.dropout2 = nn.Dropout() 
+        self.relu = nn.ReLU()
+ 
+
+    def forward(self, x): 
+        x = self.dropout1(self.relu(self.linear1(x))) 
+        x = self.dropout2(self.relu(self.linear2(x))) 
+        out = self.linear3(x) 
+        return out 
+    
+
+class LabelHead(nn.Module): 
+
+    def __init__(self, in_d, num_classes): 
+        super().__init__() 
+        self.linear = nn.Linear(in_d, num_classes) 
+
+    def forward(self, x): 
+        return self.linear(x)
+    
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -221,15 +262,15 @@ transformer = Transformer(
 # print(transformer(features).shape)
 
 
-# detr = DETR(
-#     num_queries=100, 
-#     d_model=192, 
-#     num_patches=49, 
-#     num_head=6, 
-#     num_encoders=6, 
-#     num_decoders=6, 
-#     dropout=0.1
-# ).to(device)
+detr = DETR(
+    num_queries=100, 
+    d_model=192, 
+    num_patches=49, 
+    num_head=6, 
+    num_encoders=6, 
+    num_decoders=6, 
+    dropout=0.1
+).to(device)
 
-# out = detr(torch.rand(16, 3, 224, 224, device=device))
-# print(out.shape)
+out = detr(torch.rand(16, 3, 224, 224, device=device))
+print(out["label"].shape, out["boxes"].shape)
