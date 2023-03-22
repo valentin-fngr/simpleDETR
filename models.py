@@ -69,7 +69,7 @@ class Transformer(nn.Module):
     Transformer architecture from the DETR paper. 
     The class will receive an encoder module and a decoder module 
 
-    Attributes
+     
     ----------
     queries_embedding : nn.Embedding 
                 Set embedding matrix for end to end learning
@@ -118,17 +118,11 @@ class Transformer(nn.Module):
         x = torch.permute(x, (2, 0, 1))
 
         input_decoder = torch.zeros_like(object_queries)
-
-        print("spac enc : ", spatial_encoding.shape)
-        print("object queries : ", object_queries.shape)
-        print("x : ", x.shape)
-
         out_encoder = self.encoder(x, spatial_encoding) 
         out_decoder = self.decoder(input_decoder, object_queries, out_encoder, spatial_encoding)     
 
         return out_decoder
          
-
 
 
 class EncoderBlock(nn.Module): 
