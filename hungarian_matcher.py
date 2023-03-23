@@ -41,22 +41,19 @@ class HungarianMatcher(nn.Module):
         """
 
         bs, num_queries, num_classes = y_pred["labels"].shape
-        print("bs : ", bs )
-        print("num queries : ", num_queries) 
-        print("num classes : ", num_classes)
         device = y_pred["labels"].device
         # get the softmax score and reshape
         y_pred_labels = y_pred["labels"].softmax(-1).view(bs * num_queries, num_classes) # (bs * num_queries, num_classes)
-        y_pred_boxes = y_pred["boxes"].view(bs * num_queries, 4) # (bs * num_queries, 4)
+        y_pred_boxes = y_pred["boxes"].contiguous().view(bs * num_queries, 4) # (bs * num_queries, 4)
 
         y_true_labels = torch.cat([y["labels"] for y in y_true]) # (bs * num_total_objs) 
         y_true_boxes = torch.cat([y["boxes"] for y in y_true]) # (bs * num_total_objs, 4) 
-
+        
         # compute probability score 
         # NOTE : the prob_score variable will be a 2D tensor where coordinates (i,j) represent the probability score 
         # between prediction i and ground truth object j, for all images in the batch 
 
-        prob_score = - y_pred_labels[:, y_true_labels] # (bs * num_queries, bs * num_total_objs) 
+        prob_score = - y_pred_labels[:, y_true_labels.type(torch.int32)] # (bs * num_queries, bs * num_total_objs) 
         
         # L1 distance between true and predictied boxes 
         distance_score = torch.cdist(y_pred_boxes, y_true_boxes, 1) # (bs * num_queries, bs * num_total_objs) 
@@ -64,9 +61,6 @@ class HungarianMatcher(nn.Module):
         IOU_score = compute_iou(y_true_boxes, y_pred_boxes) 
 
         # compute total score
-        print(prob_score.shape)
-        print(distance_score.shape) 
-        print(IOU_score.shape)
         match_cost = prob_score + distance_score + IOU_score 
         # reshape for convenience 
         match_cost = match_cost.view(bs, num_queries, -1).cpu() # ((bs, num_queries, bs * num_total_objs)) 
@@ -85,7 +79,7 @@ class HungarianMatcher(nn.Module):
         # we access the ith image in the batch by using cost[i] in order to compute the optimal assignement for that image only 
         optimal_matches = [linear_sum_assignment(cost[i]) for i, cost in enumerate(match_cost.split(num_objects_per_image, -1))]
         optimal_indices = [
-            (torch.tensor(row_idx, dtype=torch.float32, device=device), torch.tensor(col_idx, dtype=torch.float32, device=device)) for (row_idx, col_idx) in optimal_matches
+            (torch.tensor(row_idx, dtype=torch.int32, device=device), torch.tensor(col_idx, dtype=torch.int32, device=device)) for (row_idx, col_idx) in optimal_matches
         ]
 
         return optimal_indices

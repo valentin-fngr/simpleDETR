@@ -48,7 +48,6 @@ def compute_iou(boxes1, boxes2):
     iou : tensor (P, N)
         iou matrix between boxes1 and boxes2
     """
-
     # get intersection coordinates
     top_left = torch.maximum(boxes1[None, :, :2], boxes2[:, None, :2]) # (P, 1, 2)
     bottom_right = torch.minimum(boxes1[None, :, :2], boxes2[:, None, :2]) # (N, 1, 2)

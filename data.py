@@ -97,22 +97,3 @@ class COCODataset(Dataset):
 
         return np.asarray(ans)
     
-
-train = COCODataset(
-    config.image_train, 
-    config.annot_train, 
-    config.image_size, 
-    config.image_size, 
-    config.num_classes
-)
-
-
-val = COCODataset(
-    config.image_val, 
-    config.annot_val, 
-    config.image_size, 
-    config.image_size, 
-    config.num_classes
-)
-
-

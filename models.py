@@ -2,9 +2,9 @@ import torch.nn as nn
 import torch 
 from torchvision import models
 import config 
+import torch.nn.functional as F 
 ## TODO : 
 ## take care of shapes for attention modules !!!
-
 
 
 class DETR(nn.Module): 
@@ -32,7 +32,7 @@ class DETR(nn.Module):
             num_encoders, 
             num_decoders, 
             dropout, 
-            c_out_features=2048,
+            backbone_out_features=2048,
             train_backbone=False, 
             num_classes=91
         ): 
@@ -49,23 +49,30 @@ class DETR(nn.Module):
         self.backbone = backbone
         self.transformer = transformer = Transformer(num_queries, d_model, num_patches, num_head, num_encoders, num_decoders, dropout)
         self.matcher = None
-        self.feature_projection =  nn.Conv2d(c_out_features, d_model, kernel_size=1) # used to project the features to a new space of dimension d_model
+        self.feature_projection =  nn.Conv2d(backbone_out_features, d_model, kernel_size=1) # used to project the features to a new space of dimension d_model
         self.boxe_head = BoxesHead(d_model, d_model, 4) 
         self.label_head = LabelHead(d_model, num_classes + 1)
 
     def forward(self, x): 
-        bs= x.shape[0]
+        bs = x.shape[0]
         features = self.feature_projection(self.backbone(x)) # (bs, c, p, p) 
         # reshape 
         features = features.view(bs, self.d_model, -1)
         out = self.transformer(features)
 
         label_pred = self.label_head(out) 
-        boxe_pred = self.boxe_head(out)
+        boxes_pred = self.boxe_head(out).sigmoid() # scale between 0 and 1
+
+        num_queries = label_pred.shape[0] 
+        num_classes = label_pred.shape[-1]
+
+        # reshape outputs 
+        label_pred = label_pred.permute((1, 0, 2))
+        boxes_pred = boxes_pred.permute((1, 0, 2))
 
         return {
-            "label" : label_pred, 
-            "boxes" : boxe_pred
+            "labels" : label_pred, 
+            "boxes" : boxes_pred
         } 
 
 
@@ -107,6 +114,7 @@ class Transformer(nn.Module):
         self.pos_embedding = nn.Embedding(num_patches, d_model)
         self.encoder = TransformerEncoder(d_model, num_head, dropout, num_encoders)
         self.decoder = TransformerDecoder(d_model, num_head, dropout, num_decoders)
+
         
     def forward(self, x): 
         """
@@ -197,8 +205,6 @@ class DecoderBlock(nn.Module):
 
 
 
-
-
 class TransformerDecoder(nn.Module): 
 
     def __init__(self, d_model, num_head, dropout, num_decoders): 
@@ -210,9 +216,6 @@ class TransformerDecoder(nn.Module):
         for layer in self.layers: 
             out = layer(out, object_queries, memory, pos_embedding)
         return out 
-
-
-
 
 
 class BoxesHead(nn.Module): 
@@ -244,33 +247,3 @@ class LabelHead(nn.Module):
     def forward(self, x): 
         return self.linear(x)
     
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-transformer = Transformer(
-            num_queries=100, 
-            d_model=192, 
-            num_patches=49, 
-            num_head=6, 
-            num_encoders=6, 
-            num_decoders=6, 
-            dropout=0.1
-        ).to(device)
-
-
-# features = torch.rand(16, 192, 49, device=device)
-# print(transformer(features).shape)
-
-
-detr = DETR(
-    num_queries=100, 
-    d_model=192, 
-    num_patches=49, 
-    num_head=6, 
-    num_encoders=6, 
-    num_decoders=6, 
-    dropout=0.1
-).to(device)
-
-out = detr(torch.rand(16, 3, 224, 224, device=device))
-print(out["label"].shape, out["boxes"].shape)
