@@ -63,7 +63,7 @@ class HungarianMatcher(nn.Module):
         # compute total score
         match_cost = prob_score + distance_score + IOU_score 
         # reshape for convenience 
-        match_cost = match_cost.view(bs, num_queries, -1).cpu() # ((bs, num_queries, bs * num_total_objs)) 
+        match_cost = match_cost.view(bs, num_queries, -1).cpu() # (bs, num_queries, bs * num_total_objs)
 
         # get the information regarding how many obejcts are present for each image
         # eg : [1, 4, 10, ...] means that the first image has 1 object, the second 4, the third 10, ... 

@@ -76,7 +76,6 @@ class DETR(nn.Module):
         } 
 
 
-    
 
 class Transformer(nn.Module): 
     """

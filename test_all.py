@@ -41,18 +41,21 @@ class Tester(unittest.TestCase):
         matcher = matcher = HungarianMatcher(1, 1)
         self.criterion = SetCriterion(matcher, self.num_classes)
 
-    def test_can_compute_label_loss(self): 
+    @torch.no_grad()
+    def test_can_compute_loss(self): 
 
         # input image 
         img = torch.rand(*self.input_shape, device=self.device, dtype=torch.float32)
         y_true = [{"labels": torch.tensor([1, 3, 2], device=self.device, dtype=torch.float32), "boxes": torch.tensor([[10, 10, 5, 5], [10, 10, 5, 5], [10, 10, 5, 5]], device=self.device, dtype=torch.float32)} for i in range(self.batch_size)]
         output = self.model(img)
-        print(output["labels"])
         # self.assertTrue(type(output) == dict) 
         # self.assertEqual(tuple(output["labels"].shape), (self.batch_size, self.num_queries, self.num_classes + 1)) 
         # self.assertEqual(tuple(output["boxes"].shape), (self.batch_size, self.num_queries, 4))
         loss = self.criterion(y_true, output)
-
+        self.assertTrue(type(loss), dict) 
+        self.assertTrue("label_loss" in loss and "boxes_loss" in loss) 
+        self.assertTrue(len(loss["label_loss"].shape) == 0)
+        self.assertTrue(len(loss["boxes_loss"].shape) == 0)
 
 
 if __name__ == '__main__':

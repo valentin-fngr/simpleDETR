@@ -48,7 +48,8 @@ class SetCriterion(nn.Module):
         idx = self._get_src_permutation_idx(indices) # ([number_of_objects], [number_of_objects])
         # get all label from the batch
         target_classes_o = torch.cat([t["labels"][J.type(torch.int32)] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes + 1,
+        # create target classes with only no object classes, with same shape as the predicted labels 
+        target_classes = torch.full((int(src_logits.shape[0]), int(src_logits.shape[1])), self.num_classes,
                                     dtype=torch.int64, device=src_logits.device) # (bs, #Q)
         target_classes = target_classes.type(torch.float32)
         target_classes[idx] = target_classes_o
@@ -81,7 +82,7 @@ class SetCriterion(nn.Module):
         pred_boxes = outputs["boxes"] # (bs, #Q, 4)
 
         # retrieve ground truth boxes 
-        idx = self._get_src_permutation_idx(self, indices) # (batch_size*num_obj), (batch_size*num_obj)
+        idx = self._get_src_permutation_idx(indices) # (batch_size*num_obj), (batch_size*num_obj)
         target_boxes = torch.cat([t["boxes"][j] for t, (_,j) in zip(targets, indices)])
         pred_boxes = pred_boxes[idx]
 
