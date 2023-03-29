@@ -67,13 +67,13 @@ class COCODataset(Dataset):
             print("annotations empty ! ")
             targets = {
                 'boxes': torch.zeros(1, 4, dtype=torch.float32),
-                'labels': torch.as_tensor([self.numClass], dtype=torch.int64),
+                'labels': torch.as_tensor([self.numClass], dtype=torch.float32),
             }
             print(targets)
         else:
             targets = {
                 'boxes': torch.as_tensor(annotations[..., :-1], dtype=torch.float32),
-                'labels': torch.as_tensor(annotations[..., -1], dtype=torch.int64),
+                'labels': torch.as_tensor(annotations[..., -1], dtype=torch.float32),
             }
 
         image = self.transforms(image)

@@ -45,7 +45,7 @@ class HungarianMatcher(nn.Module):
         # get the softmax score and reshape
         y_pred_labels = y_pred["labels"].softmax(-1).view(bs * num_queries, num_classes) # (bs * num_queries, num_classes)
         y_pred_boxes = y_pred["boxes"].contiguous().view(bs * num_queries, 4) # (bs * num_queries, 4)
-
+        
         y_true_labels = torch.cat([y["labels"] for y in y_true]) # (bs * num_total_objs) 
         y_true_boxes = torch.cat([y["boxes"] for y in y_true]) # (bs * num_total_objs, 4) 
         
@@ -84,23 +84,6 @@ class HungarianMatcher(nn.Module):
 
         return optimal_indices
     
-
-
-
-# if __name__ == "__main__": 
-    
-#     y_true = [
-#         {"labels": torch.tensor([2, 4], dtype=torch.int32), "boxes": torch.tensor([[10, 10, 5, 5], [10, 10, 5, 5]], dtype=torch.float32)},
-#         {"labels": torch.tensor([1], dtype=torch.int32), "boxes": torch.tensor([[10, 10, 20, 20]], dtype=torch.float32)},
-#     ]
-
-#     y_pred = {
-#         "labels" : torch.randint(0, 5, size=(2, 10, 20), dtype=torch.float32),
-#         "boxes" : torch.randint(0, 20, size=(2, 10, 4), dtype=torch.float32)
-#     }
-
-#     matcher = HungarianMatcher(1, 1) 
-#     print(matcher(y_true, y_pred))
 
 
 

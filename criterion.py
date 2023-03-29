@@ -3,6 +3,8 @@ import torch
 import torch.nn.functional as F
 
 
+
+
 class SetCriterion(nn.Module):
     """"
         A class that computes the loss between the set of predicted outputs and the ground truth
