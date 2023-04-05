@@ -1,7 +1,8 @@
 # hyper parameters 
+import torch
 
 train_split = 0.8 
-batch_size = 1
+batch_size = 128
 lr = 10e-4
 epochs = 50 
 dropout = 0.1
@@ -25,4 +26,4 @@ annot_val = "coco" + "/annotations/instances_val2017.json"
 
 
 # training 
-device = "cuda"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

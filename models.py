@@ -46,7 +46,7 @@ class DETR(nn.Module):
                 param.requires_grad = False
 
         self.d_model = d_model
-        self.backbone = backbone
+        self.backbone = backbone.to(config.device)
         self.transformer = transformer = Transformer(num_queries, d_model, num_patches, num_head, num_encoders, num_decoders, dropout)
         self.matcher = None
         self.feature_projection =  nn.Conv2d(backbone_out_features, d_model, kernel_size=1) # used to project the features to a new space of dimension d_model

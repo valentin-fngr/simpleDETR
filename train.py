@@ -4,17 +4,24 @@ from hungarian_matcher import HungarianMatcher
 from data import COCODataset
 import config 
 from torch.utils.data import DataLoader
+import torch
 import torch.optim as optim 
 from tqdm import tqdm 
+from torch.utils.tensorboard import SummaryWriter
 
+
+def collat_coco(batch): 
+    images = torch.stack([image for image, _ in batch], 0).to(config.device)
+    targets = [{"labels": target["labels"].to(config.device), "boxes": target["boxes"].to(config.device)}for _, target in batch]
+    return images, targets 
 
 def get_data(): 
 
     train = COCODataset(config.image_train, config.annot_train, config.image_size, config.image_size, config.num_classes)
     val = COCODataset(config.image_val, config.annot_val, config.image_size, config.image_size, config.num_classes)
 
-    train_loader = DataLoader(train, batch_size=config.batch_size)
-    val_loader = DataLoader(val, batch_size=config.batch_size)
+    train_loader = DataLoader(train, batch_size=config.batch_size, collate_fn=collat_coco)
+    val_loader = DataLoader(val, batch_size=config.batch_size, collate_fn=collat_coco)
 
     return train_loader, val_loader
 
@@ -59,13 +66,12 @@ def train(model, train_loader, criterion, optimizer, epoch, writer=None):
     for i, data in enumerate(tqdm(train_loader)): 
 
         images, targets = data 
-        images = images.to(config.device) 
 
         # this intellectual gymnastic is only necessary because I decided to follow 
         # the format of each inputs and outputs of the official implementation
-        targets_labels = targets["labels"] 
-        targets_boxes = targets["boxes"]
-        targets = [{"labels": labels.to(config.device), "boxes": boxes.to(config.device)}for labels, boxes in zip(targets_labels, targets_boxes)]
+        # targets_labels = targets["labels"] 
+        # targets_boxes = targets["boxes"]
+        # targets = [{"labels": labels.to(config.device), "boxes": boxes.to(config.device)}for labels, boxes in zip(targets_labels, targets_boxes)]
 
         preds = model(images) 
         # compute loss 
@@ -79,7 +85,7 @@ def train(model, train_loader, criterion, optimizer, epoch, writer=None):
         total_boxes_loss += boxes_loss.item() 
         total_labels_loss += label_loss.item()
 
-        if i % 200 == 0: 
+        if i % 10 == 0: 
             print(f"Epoch {epoch} [{i}|{len(train_loader)}] : total_loss={total_loss/(i+1)} _ total_boxes_loss={total_boxes_loss/(i+1)} _ total_labels_loss={total_labels_loss/(i+1)}")            
 
         model.zero_grad()
@@ -103,24 +109,24 @@ def train(model, train_loader, criterion, optimizer, epoch, writer=None):
 
 def main(): 
 
+    # check for cuda  
+    print("current device is : ", config.device)
+    
     train_loader, val_loader = get_data()
     criterion = get_criterion() 
     model = get_model() 
     optimizer = get_optimizer(model)
 
+    writer = SummaryWriter("runs")
+
     for epoch in range(config.epochs): 
 
-        train(model, train_loader, criterion, optimizer, epoch, writer=None)
+        train(model, train_loader, criterion, optimizer, epoch, writer=writer)
 
     
 
 
     return 
-
-
-
-
-
 
 
 
